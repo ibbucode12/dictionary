@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dictionary & Translator</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background-color: #f8f9fc;
+        font-family: "Inter", sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        width: 50% !important;
+        margin: 40px auto;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+      }
+      .title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .icon-btn {
+        transition: transform 0.2s ease;
+      }
+      .icon-btn:hover {
+        transform: scale(1.1);
+      }
+
+      /* Mobile responsiveness */
+      @media (max-width: 768px) {
+        .container {
+          width: 90%;
+          margin: 20px auto;
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="title">Dictionary & Translator</h1>
+
+      <div class="space-y-4">
+        <!-- Input with Mic -->
+        <div class="relative">
+          <input
+            id="word-input"
+            type="text"
+            placeholder="Enter a word or phrase"
+            class="w-full p-3 border rounded-lg focus:ring focus:ring-blue-200 outline-none pr-14"
+          />
+          <button
+            id="mic-btn"
+            class="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white p-2.5 rounded-full shadow-md icon-btn hover:bg-blue-700"
+            title="Speak to translate"
+          >
+            🎤
+          </button>
+        </div>
+
+        <!-- Language Selection -->
+        <select
+          id="language-select"
+          class="w-full p-3 border rounded-lg focus:ring focus:ring-blue-200 outline-none"
+        >
+          <option value="ta">Tamil</option>
+          <option value="hi">Hindi</option>
+          <option value="mr">Marathi</option>
+          <option value="gu">Gujarati</option>
+          <option value="kn">Kannada</option>
+          <option value="ml">Malayalam</option>
+          <option value="te">Telugu</option>
+          <option value="ur">Urdu</option>
+          <option value="bn">Bengali</option>
+          <option value="pa">Punjabi</option>
+        </select>
+
+        <!-- Buttons -->
+        <div class="flex space-x-2 flex-wrap">
+          <button
+            id="search-btn"
+            class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+          >
+            Translate
+          </button>
+          <button
+            id="clear-btn"
+            class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Loader -->
+      <div id="loader" class="hidden text-center mt-6">
+        <p class="text-blue-600 font-medium">Translating...</p>
+      </div>
+
+      <!-- Result -->
+      <div id="result-container" class="mt-6 text-center text-gray-700">
+        <p class="text-gray-500">Your results will appear here.</p>
+      </div>
+    </div>
+
+    <script>
+      $(document).ready(function () {
+        const dictionaryApiUrl = "https://api.datamuse.com/words?sp=";
+        let lastTranslation = "";
+        let lastLang = "en";
+
+        async function fetchWordData(word) {
+          const targetLang = $("#language-select").val();
+          const targetLangText = $("#language-select option:selected").text();
+          lastLang = targetLang;
+
+          $("#loader").removeClass("hidden");
+          $("#result-container").addClass("hidden");
+
+          try {
+            // Dictionary lookup
+            const dictResponse = await $.getJSON(
+              `${dictionaryApiUrl}${encodeURIComponent(word)}`,
+            );
+            let definition = dictResponse.length
+              ? `Similar word: ${dictResponse[0].word}`
+              : "No definition found.";
+
+            // Translation
+            const translateUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${targetLang}&dt=t&q=${encodeURIComponent(word)}`;
+            const translationResponse = await fetch(translateUrl);
+            const translationData = await translationResponse.json();
+            const translation = translationData[0][0][0];
+            lastTranslation = translation;
+
+            const summary = `${translation} — ${definition}`;
+
+            const resultHtml = `
+            <div class="space-y-4">
+              <div>
+                <h2 class="text-3xl font-bold text-gray-900">${word}</h2>
+              </div>
+              <hr>
+              <div>
+                <h3 class="font-semibold text-xl text-blue-600 mb-2">${targetLangText} Translation</h3>
+                <div class="flex items-center justify-center space-x-2">
+                  <p class="text-2xl text-gray-900 font-medium" id="translated-text">${translation}</p>
+                  <button id="speak-icon"
+                    class="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 icon-btn"
+                    title="Read Aloud">
+                    🔊
+                  </button>
+                </div>
+              </div>
+              <div>
+                <h3 class="font-semibold text-xl text-gray-700">English Definition</h3>
+                <p class="text-gray-600 mt-1">${definition}</p>
+              </div>
+              <div>
+                <h3 class="font-semibold text-xl text-gray-700">Summary</h3>
+                <p class="text-gray-600 mt-1">${summary}</p>
+              </div>
+            </div>`;
+
+            $("#result-container").html(resultHtml);
+
+            // ✅ Google Translate TTS for playback
+            $("#speak-icon").on("click", () => {
+              const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${encodeURIComponent(
+                lastTranslation,
+              )}&tl=${targetLang}`;
+              const audio = new Audio(ttsUrl);
+              audio
+                .play()
+                .catch((err) => console.error("Audio playback failed:", err));
+            });
+          } catch (err) {
+            console.error(err);
+            $("#result-container").html(
+              '<p class="text-center text-red-500">Translation failed. Please try again.</p>',
+            );
+          } finally {
+            $("#loader").addClass("hidden");
+            $("#result-container").removeClass("hidden");
+          }
+        }
+
+        $("#search-btn").on("click", () => {
+          const word = $("#word-input").val().trim();
+          if (word) fetchWordData(word);
+          else alert("Please enter a word!");
+        });
+
+        $("#word-input").on("keypress", (e) => {
+          if (e.which === 13) $("#search-btn").click();
+        });
+
+        $("#clear-btn").on("click", () => {
+          $("#word-input").val("");
+          $("#result-container").html(
+            '<p class="text-gray-500 text-center">Your results will appear here.</p>',
+          );
+        });
+
+        // 🎙️ Voice input
+        const SpeechRecognition =
+          window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.lang = "en-IN";
+          recognition.interimResults = false;
+
+          $("#mic-btn").on("click", () => {
+            $("#mic-btn").addClass("bg-red-600");
+            recognition.start();
+          });
+
+          recognition.addEventListener("result", (event) => {
+            const transcript = event.results[0][0].transcript;
+            $("#word-input").val(transcript);
+            fetchWordData(transcript);
+          });
+
+          recognition.addEventListener("end", () => {
+            $("#mic-btn").removeClass("bg-red-600");
+            recognition.stop();
+          });
+        } else {
+          $("#mic-btn").hide();
+        }
+      });
+    </script>
+  </body>
+</html>
